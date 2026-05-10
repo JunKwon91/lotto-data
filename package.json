@@ -1,0 +1,26 @@
+{
+  "name": "lottostatsdataprep",
+  "version": "1.0.0",
+  "description": "한국 로또 6/45 당첨 번호 데이터셋. 1회차(2002-12-07)부터 최신 회차까지.",
+  "main": "index.js",
+  "scripts": {
+    "update": "node scripts/update.js",
+    "test:crawl": "node -e \"require('./scripts/crawl-dhlottery').crawlDhLottery(1223).then(r => console.log(JSON.stringify(r, null, 2)))\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JunKwon91/lotto-data.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JunKwon91/lotto-data/issues"
+  },
+  "homepage": "https://github.com/JunKwon91/lotto-data#readme",
+  "dependencies": {
+    "axios": "^1.16.0",
+    "cheerio": "^1.2.0"
+  }
+}
