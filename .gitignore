@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+*.log
+
+# 원본 데이터 (smok95/lotto에서 클론한 것, 재현 가능)
+smok95-source/
