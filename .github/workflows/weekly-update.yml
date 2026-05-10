@@ -13,17 +13,13 @@ jobs:
     permissions:
       contents: write   # 데이터 커밋·푸시 권한
       issues: write     # 실패 시 issue 생성 권한
-    # GitHub Actions의 JavaScript 액션(actions/checkout, setup-node 등)을
-    # Node.js 24 런타임으로 강제 전환. 2026-06-02부터 default가 되므로 미리 opt-in.
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6   # Node.js 24 native
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'   # 현 LTS
 
@@ -47,7 +43,7 @@ jobs:
 
       - name: Create issue on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const date = new Date().toISOString().split('T')[0];
