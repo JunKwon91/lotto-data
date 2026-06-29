@@ -42,11 +42,13 @@ const { data, latestRound, updatedAt } = await response.json();
 
 ## Update Schedule
 
-매주 토요일 22:00 KST에 GitHub Actions로 자동 갱신 예정 (Phase 2).
+매주 토요일 22:00 KST(13:00 UTC)에 GitHub Actions로 자동 갱신된다. 누락 회차만 증분 크롤링 후 변경 시 자동 커밋·푸시.
 
 ## Source
 
-초기 데이터는 [smok95/lotto](https://github.com/smok95/lotto)에서 가져옴. 추후 네이버 검색 결과 파싱으로 자동 갱신.
+초기 데이터는 [smok95/lotto](https://github.com/smok95/lotto)에서 부트스트랩했고, 이후 회차는 동행복권(dhlottery.co.kr) 사이트를 Playwright로 크롤링해 갱신한다.
+
+설계 결정의 배경은 [DECISIONS.md](DECISIONS.md) 참고.
 
 ## License
 
