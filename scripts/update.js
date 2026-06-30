@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { crawlDhLottery } = require('./crawl-dhlottery');
+const { crawlDhLottery, closeBrowser } = require('./crawl-dhlottery');
 
 const DATA_PATH = path.join(__dirname, '../data/lotto-history.json');
 const FIRST_DRAW_DATE = new Date('2002-12-07T20:35:00+09:00');
@@ -89,10 +89,18 @@ async function main() {
   // 6. 파일 저장
   fs.writeFileSync(DATA_PATH, JSON.stringify(existing, null, 2) + '\n');
   console.log(`✅ 갱신 완료. 총 ${existing.data.length}개 회차.`);
+
+  // 브라우저를 명시적으로 닫는다. 닫지 않으면 Chromium 프로세스가 이벤트 루프를
+  // 붙잡아 beforeExit가 발화하지 않고 스크립트가 종료되지 않는다.
+  await closeBrowser();
 }
 
-main().catch(err => {
-  console.error('❌ 갱신 실패:', err.message);
-  console.error(err.stack);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error('❌ 갱신 실패:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+  });
