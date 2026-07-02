@@ -8,11 +8,9 @@
 // 4) data/lotto-history.json에 추가, 정렬, 메타데이터 갱신
 // ============================================================================
 
-const fs = require('fs');
-const path = require('path');
 const { crawlDhLottery, closeBrowser } = require('./crawl-dhlottery');
+const { loadHistory, mergeAndSave } = require('./lotto-store');
 
-const DATA_PATH = path.join(__dirname, '../data/lotto-history.json');
 const FIRST_DRAW_DATE = new Date('2002-12-07T20:35:00+09:00');
 const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
 const MAX_GAP = 10; // 한 번에 10주 이상 갭 시 중단
@@ -31,7 +29,7 @@ async function main() {
   console.log('🔄 로또 데이터 갱신 시작');
 
   // 1. 기존 데이터 로드
-  const existing = JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'));
+  const existing = loadHistory();
   const lastRound = existing.latestRound;
   console.log(`현재 최신 회차: ${lastRound}`);
 
@@ -60,17 +58,11 @@ async function main() {
   console.log(`📥 ${gap}개 회차 추가 예정 (${lastRound + 1} ~ ${currentRound})`);
 
   // 4. 누락된 회차 순차 크롤링
+  const newRounds = [];
   for (let round = lastRound + 1; round <= currentRound; round++) {
     console.log(`  ${round}회차 크롤링 중...`);
     const data = await crawlDhLottery(round);
-
-    // 검증: 데이터에 이미 있는지 (방어적)
-    if (existing.data.find(d => d.drawNo === round)) {
-      console.warn(`  ⚠️ ${round}회차 이미 존재, 스킵`);
-      continue;
-    }
-
-    existing.data.push(data);
+    newRounds.push(data);
     console.log(
       `  ✓ ${round}회차: ${data.numbers.join(', ')} + ${data.bonusNo} (${data.date})`,
     );
@@ -81,13 +73,8 @@ async function main() {
     }
   }
 
-  // 5. 정렬 + 메타데이터 업데이트
-  existing.data.sort((a, b) => a.drawNo - b.drawNo);
-  existing.latestRound = currentRound;
-  existing.updatedAt = new Date().toISOString();
-
-  // 6. 파일 저장
-  fs.writeFileSync(DATA_PATH, JSON.stringify(existing, null, 2) + '\n');
+  // 5. 병합·정렬·메타 갱신·저장 (dedup 포함, 공용 경로)
+  mergeAndSave(existing, newRounds, currentRound);
   console.log(`✅ 갱신 완료. 총 ${existing.data.length}개 회차.`);
 
   // 브라우저를 명시적으로 닫는다. 닫지 않으면 Chromium 프로세스가 이벤트 루프를

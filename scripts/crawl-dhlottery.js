@@ -16,6 +16,13 @@
 //   - tm1WnNo~tm6WnNo : 당첨번호 6개
 //   - bnsWnNo      : 보너스번호
 //   - ltRflYmd     : 추첨일 (YYYYMMDD)
+//   - rnk1~5WnNope : 등수별 당첨인원
+//   - rnk1~5WnAmt  : 등수별 1인당 당첨금
+//   - rnk1~5SumWnAmt : 등수별 총 당첨금 (1인당 × 인원, 정합 검증용)
+//   - sumWnNope    : 총 당첨인원
+//   - rlvtEpsdSumNtslAmt : 총 당첨금액 (전 등수 총 배당금)
+//   - wholEpsdSumNtslAmt : 총 판매액
+//   - winType1/2/3 : 1등 유형별 게임수 (자동/수동/반자동), winType0=미사용(항상 0)
 // ============================================================================
 
 const { chromium } = require('playwright');
@@ -61,6 +68,79 @@ async function closeBrowser() {
     _browserPromise = null;
     _pagePromise = null;
   }
+}
+
+// 등수별 상금·인원 + 총계 + 1등 유형(자동/수동/반자동)을 파싱한다.
+// 상금 필드가 없는 회차(구형/예외)면 {} 를 반환해 기본 4필드만 저장되게 한다.
+function parseExtended(item, round) {
+  if (item.rnk1WnNope == null || item.rnk1WnAmt == null) {
+    console.warn(`  ⚠️ ${round}회차: 상금/인원 필드 없음 — 기본 4필드만 저장`);
+    return {};
+  }
+
+  const prizes = [];
+  for (let r = 1; r <= 5; r++) {
+    const winners = Number(item[`rnk${r}WnNope`]);
+    const prizePerWinner = Number(item[`rnk${r}WnAmt`]);
+    const sumFromSource = Number(item[`rnk${r}SumWnAmt`]);
+
+    if (![winners, prizePerWinner, sumFromSource].every(Number.isFinite)) {
+      throw new Error(`${round}회차 ${r}등 상금/인원 파싱 실패`);
+    }
+    if (winners < 0 || prizePerWinner < 0) {
+      throw new Error(
+        `${round}회차 ${r}등 음수 값: winners=${winners}, prize=${prizePerWinner}`,
+      );
+    }
+    // 정합성: 1인당 × 인원 === 원천 총액(rnkNSumWnAmt)
+    if (winners * prizePerWinner !== sumFromSource) {
+      throw new Error(
+        `${round}회차 ${r}등 정합성 오류: ${prizePerWinner}×${winners}=` +
+          `${winners * prizePerWinner} ≠ 원천 ${sumFromSource}`,
+      );
+    }
+    prizes.push({ rank: r, winners, prizePerWinner });
+  }
+
+  const totalWinners = Number(item.sumWnNope);
+  const totalPrize = Number(item.rlvtEpsdSumNtslAmt);
+  const totalSales = Number(item.wholEpsdSumNtslAmt);
+  for (const [key, val] of [
+    ['totalWinners', totalWinners],
+    ['totalPrize', totalPrize],
+    ['totalSales', totalSales],
+  ]) {
+    if (!Number.isFinite(val) || val < 0) {
+      throw new Error(`${round}회차 ${key} 값 이상: ${val}`);
+    }
+  }
+
+  // 1등 유형별 게임수 (winType0=미사용, winType1=자동, winType2=수동, winType3=반자동)
+  const wt0 = Number(item.winType0);
+  const auto = Number(item.winType1);
+  const manual = Number(item.winType2);
+  const semiAuto = Number(item.winType3);
+  if (![auto, manual, semiAuto].every(Number.isFinite)) {
+    throw new Error(`${round}회차 winType 파싱 실패`);
+  }
+  if (wt0 !== 0) {
+    console.warn(
+      `  ⚠️ ${round}회차 winType0=${wt0} (0 아님) — 자동/수동 매핑 전제 확인 필요`,
+    );
+  }
+  if (auto + manual + semiAuto !== prizes[0].winners) {
+    console.warn(
+      `  ⚠️ ${round}회차 유형 합(${auto + manual + semiAuto}) ≠ 1등 인원(${prizes[0].winners})`,
+    );
+  }
+
+  return {
+    prizes,
+    totalWinners,
+    totalPrize,
+    totalSales,
+    firstWinMethod: { auto, manual, semiAuto },
+  };
 }
 
 async function crawlDhLottery(round) {
@@ -132,6 +212,7 @@ async function crawlDhLottery(round) {
     date,
     numbers: numbers.sort((a, b) => a - b),
     bonusNo,
+    ...parseExtended(item, round),
   };
 }
 
