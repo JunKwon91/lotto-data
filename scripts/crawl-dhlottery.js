@@ -41,7 +41,14 @@ async function _getPage() {
   if (_pagePromise) return _pagePromise;
 
   _pagePromise = (async () => {
-    if (!_browserPromise) _browserPromise = chromium.launch();
+    // 번들 Chromium은 동행복권 봇 방어가 연결 단계에서 드롭한다(실제 Chrome은
+    // 통과). 시스템 설치 Chrome 채널을 사용한다. 환경에 Chrome이 없으면
+    // PLAYWRIGHT_CHANNEL로 다른 채널(msedge 등)을 지정할 수 있다.
+    if (!_browserPromise) {
+      _browserPromise = chromium.launch({
+        channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome',
+      });
+    }
     const browser = await _browserPromise;
     const context = await browser.newContext({ userAgent: USER_AGENT });
     const page = await context.newPage();
@@ -82,9 +89,8 @@ function parseExtended(item, round) {
   for (let r = 1; r <= 5; r++) {
     const winners = Number(item[`rnk${r}WnNope`]);
     const prizePerWinner = Number(item[`rnk${r}WnAmt`]);
-    const sumFromSource = Number(item[`rnk${r}SumWnAmt`]);
 
-    if (![winners, prizePerWinner, sumFromSource].every(Number.isFinite)) {
+    if (![winners, prizePerWinner].every(Number.isFinite)) {
       throw new Error(`${round}회차 ${r}등 상금/인원 파싱 실패`);
     }
     if (winners < 0 || prizePerWinner < 0) {
@@ -92,10 +98,16 @@ function parseExtended(item, round) {
         `${round}회차 ${r}등 음수 값: winners=${winners}, prize=${prizePerWinner}`,
       );
     }
-    // 정합성: 1인당 × 인원 === 원천 총액(rnkNSumWnAmt)
-    if (winners * prizePerWinner !== sumFromSource) {
-      throw new Error(
-        `${round}회차 ${r}등 정합성 오류: ${prizePerWinner}×${winners}=` +
+    // SumWnAmt(등수별 총액)는 저장하지 않는 파생필드다. 1등 0명(이월) 회차
+    // 등에서 원천이 0/이월값으로 실제 인원·1인당과 어긋날 수 있으므로,
+    // 저장값에 영향 없는 이 교차검증은 경고만 남긴다(throw 아님).
+    const sumFromSource = Number(item[`rnk${r}SumWnAmt`]);
+    if (
+      Number.isFinite(sumFromSource) &&
+      winners * prizePerWinner !== sumFromSource
+    ) {
+      console.warn(
+        `  ⚠️ ${round}회차 ${r}등 SumWnAmt 불일치(경고): ${prizePerWinner}×${winners}=` +
           `${winners * prizePerWinner} ≠ 원천 ${sumFromSource}`,
       );
     }
@@ -103,16 +115,28 @@ function parseExtended(item, round) {
   }
 
   const totalWinners = Number(item.sumWnNope);
-  const totalPrize = Number(item.rlvtEpsdSumNtslAmt);
   const totalSales = Number(item.wholEpsdSumNtslAmt);
+  // totalPrize(총 당첨금액)는 원천 rlvtEpsdSumNtslAmt가 초기 회차(≤260)에서
+  // 판매액과 같은 오류값을 주므로, 검증된 등수별 값의 합으로 계산한다.
+  const totalPrize = prizes.reduce(
+    (s, p) => s + p.winners * p.prizePerWinner,
+    0,
+  );
   for (const [key, val] of [
     ['totalWinners', totalWinners],
-    ['totalPrize', totalPrize],
     ['totalSales', totalSales],
   ]) {
     if (!Number.isFinite(val) || val < 0) {
       throw new Error(`${round}회차 ${key} 값 이상: ${val}`);
     }
+  }
+
+  // 저장값 정합(경고만): 등수별 인원 합이 총 당첨자 수와 일치하는지.
+  const sumWinners = prizes.reduce((s, p) => s + p.winners, 0);
+  if (sumWinners !== totalWinners) {
+    console.warn(
+      `  ⚠️ ${round}회차 등수별 인원 합(${sumWinners}) ≠ totalWinners(${totalWinners})`,
+    );
   }
 
   // 1등 유형별 게임수 (winType0=미사용, winType1=자동, winType2=수동, winType3=반자동)
@@ -144,11 +168,14 @@ function parseExtended(item, round) {
 }
 
 async function crawlDhLottery(round) {
-  const page = await _getPage();
   const url = `${API_BASE}?srchDir=center&srchLtEpsd=${round}`;
 
+  // 네트워크 계층(페이지 진입 + fetch)의 오류는 kind='network'로 태깅한다.
+  // 호출처(백필)가 재시도/컨텍스트 재생성 대상(네트워크)과 데이터 오류를
+  // 구분할 수 있게 하기 위함.
   let payload;
   try {
+    const page = await _getPage();
     payload = await page.evaluate(async u => {
       const r = await fetch(u, { credentials: 'include' });
       if (!r.ok) {
@@ -157,7 +184,9 @@ async function crawlDhLottery(round) {
       return await r.json();
     }, url);
   } catch (err) {
-    throw new Error(`${round}회차 API 호출 실패: ${err.message}`);
+    const e = new Error(`${round}회차 데이터 수신 실패: ${err.message}`);
+    e.kind = 'network';
+    throw e;
   }
 
   if (!payload || !payload.data || !Array.isArray(payload.data.list)) {
