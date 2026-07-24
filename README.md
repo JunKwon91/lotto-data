@@ -86,4 +86,6 @@ const { data, latestRound, updatedAt } = await response.json();
 
 ## License
 
-MIT
+MIT — 전문은 [LICENSE](LICENSE) 참고.
+
+데이터 자체는 동행복권이 공개한 추첨 결과를 정리한 것이다.
