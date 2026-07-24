@@ -158,7 +158,8 @@ lotto-data 파이프라인(크롤링·정제·배포)의 주요 설계 결정을
 - **선택**: `chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' })`로 **시스템 설치 Chrome**을 사용한다(`crawl-dhlottery.js:49`). CI도 `playwright install --with-deps chrome`으로 Chrome을 설치한다(`weekly-update.yml`).
 - **포기한 옵션**: IP 쿨다운 대기(오진 — 원인 아님), 헤디드 실행(번들 Chromium은 헤디드로도 차단), User-Agent 변경(연결 단계 차단이라 무효).
 - **근거**: 격리 테스트로 원인을 규명했다 — ①같은 IP에서 실제 브라우저는 정상 접속, ②Playwright가 example.com 등 타 사이트는 정상, ③번들 Chromium은 헤드리스·헤디드 모두 dhlottery만 차단, ④`channel: 'chrome'`(실제 Chrome 지문)은 통과. 즉 IP가 아니라 **봇 방어의 브라우저/지문 차단**이 원인이었다. **교훈: 네트워크 타임아웃 증상을 IP 문제로 단정하지 말고, 브라우저·지문 변수부터 격리해 확인할 것.**
-- **결과**: 로컬·CI 모두 Chrome 채널로 봇 방어 통과. `workflow_dispatch` 수동 검증(2026-07-02)에서 Chrome 설치·1227회차 진단 크롤 성공·update 정상 종료(53초)·commit/push 스텝 정상("변경 없음", 새 회차 미출현) 확인. **다만 새 회차(1231, 2026-07-04 예정)를 실제로 커밋하는 정기 실행은 아직 관측되지 않았다**(수동 트리거까지만 검증). commit `b41a3df`(크롤러) + `a15176a`(CI). ADR-05·07의 브라우저·설치 항목을 개정.
+- **결과**: 로컬·CI 모두 Chrome 채널로 봇 방어 통과. `workflow_dispatch` 수동 검증(2026-07-02)에서 Chrome 설치·1227회차 진단 크롤 성공·update 정상 종료(53초)·commit/push 스텝 정상("변경 없음", 새 회차 미출현) 확인. commit `b41a3df`(크롤러) + `a15176a`(CI). ADR-05·07의 브라우저·설치 항목을 개정.
+- **갱신**: 이후 정기 실행이 새 회차를 실제로 커밋하는 것까지 확인했다. 2026-07-04·07-11·07-18 세 번의 schedule 실행이 모두 성공해 1231~1233회차를 자동 커밋했다(각 45초 내외). 수동 트리거에서만 검증됐던 단계가 정기 실행으로 실증됐다.
 
 ---
 
