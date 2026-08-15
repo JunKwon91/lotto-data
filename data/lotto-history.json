@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-08-08T13:49:35.763Z",
-  "latestRound": 1236,
+  "updatedAt": "2026-08-15T13:33:32.019Z",
+  "latestRound": 1237,
   "data": [
     {
       "drawNo": 1,
@@ -58078,6 +58078,54 @@
         "auto": 5,
         "manual": 5,
         "semiAuto": 1
+      }
+    },
+    {
+      "drawNo": 1237,
+      "date": "2026-08-15",
+      "numbers": [
+        10,
+        20,
+        23,
+        34,
+        37,
+        40
+      ],
+      "bonusNo": 36,
+      "prizes": [
+        {
+          "rank": 1,
+          "winners": 23,
+          "prizePerWinner": 1214932680
+        },
+        {
+          "rank": 2,
+          "winners": 75,
+          "prizePerWinner": 62096560
+        },
+        {
+          "rank": 3,
+          "winners": 3745,
+          "prizePerWinner": 1243590
+        },
+        {
+          "rank": 4,
+          "winners": 172132,
+          "prizePerWinner": 50000
+        },
+        {
+          "rank": 5,
+          "winners": 2663409,
+          "prizePerWinner": 5000
+        }
+      ],
+      "totalWinners": 2839384,
+      "totalPrize": 59181583190,
+      "totalSales": 118363161000,
+      "firstWinMethod": {
+        "auto": 14,
+        "manual": 9,
+        "semiAuto": 0
       }
     }
   ]
